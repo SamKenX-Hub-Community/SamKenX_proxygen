@@ -1116,6 +1116,8 @@ void HQSession::readError(quic::StreamId id, quic::QuicError error) noexcept {
               << " streamID=" << id << " sess=" << *this;
       if (errorCode == quic::LocalErrorCode::CONNECT_FAILED) {
         ex.setProxygenError(kErrorConnect);
+      } else if (errorCode == quic::LocalErrorCode::IDLE_TIMEOUT) {
+        ex.setProxygenError(kErrorEOF);
       } else {
         ex.setProxygenError(kErrorShutdown);
       }
@@ -2110,6 +2112,9 @@ HQSession::createStreamTransport(quic::StreamId streamId) {
 
   // tracks max historical streams
   HTTPSessionBase::onNewOutgoingStream(getNumOutgoingStreams());
+  if (infoCallback_) {
+    infoCallback_->onTransactionAttached(*this);
+  }
 
   return &matchPair.first->second;
 }
@@ -2346,10 +2351,10 @@ void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
       getConnectionManager()->onDeactivated(*this);
     }
     resetTimeout();
-  } else {
-    if (infoCallback_) {
-      infoCallback_->onTransactionDetached(*this);
-    }
+  }
+
+  if (infoCallback_) {
+    infoCallback_->onTransactionDetached(*this);
   }
 }
 
